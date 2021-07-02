@@ -4,7 +4,7 @@ object Constants {
 
     const val USE_LOCALHOST = false
 
-    const val HTTP_BASE_URL = "http://192.168.0.101:8001/"
+    const val HTTP_BASE_URL = "http://192.168.0.100:8001/"
     const val HTTP_BASE_URL_LOCALHOST = "http://10.0.2.2:8001/"
 
     const val MIN_USERNAME_LENGTH = 4
