@@ -4,7 +4,7 @@ object Constants {
 
     const val USE_LOCALHOST = false
 
-    private const val MY_WIFI_IP = "192.168.0.103"
+    private const val MY_WIFI_IP = "192.168.0.102"
 
     const val HTTP_BASE_URL = "http://$MY_WIFI_IP:8001/"
     const val HTTP_BASE_URL_LOCALHOST = "http://10.0.2.2:8001/"
