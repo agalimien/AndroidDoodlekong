@@ -74,6 +74,12 @@ class DrawingActivity : AppCompatActivity() {
         binding.colorGroup.setOnCheckedChangeListener { _, checkedId ->
             viewModel.checkRadioButton(checkedId)
         }
+
+        binding.drawingView.setOnDrawListener {
+            if (binding.drawingView.isUserDrawing) {
+                viewModel.sendBaseModel(it)
+            }
+        }
     }
 
     private fun selectColor(color: Int) {
@@ -130,7 +136,7 @@ class DrawingActivity : AppCompatActivity() {
 
     private fun listenToConnectionEvents() = lifecycleScope.launchWhenStarted {
         viewModel.connectionEvent.collect { event ->
-            when(event) {
+            when (event) {
                 is WebSocket.Event.OnConnectionOpened<*> -> {
                     viewModel.sendBaseModel(
                         JoinRoomHandshake(args.username, args.roomName, clientId)
