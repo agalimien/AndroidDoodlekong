@@ -19,14 +19,14 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.plcoding.doodlekong.R
 import com.plcoding.doodlekong.adapters.ChatMessageAdapter
-import com.plcoding.doodlekong.data.remote.ws.models.DrawAction
-import com.plcoding.doodlekong.data.remote.ws.models.GameError
-import com.plcoding.doodlekong.data.remote.ws.models.JoinRoomHandshake
+import com.plcoding.doodlekong.data.remote.ws.models.*
 import com.plcoding.doodlekong.databinding.ActivityDrawingBinding
 import com.plcoding.doodlekong.util.Constants
 import com.tinder.scarlet.WebSocket
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -46,6 +46,8 @@ class DrawingActivity : AppCompatActivity() {
 
     private lateinit var chatMessageAdapter: ChatMessageAdapter
 
+    private var updateChatJob: Job? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDrawingBinding.inflate(layoutInflater)
@@ -60,6 +62,9 @@ class DrawingActivity : AppCompatActivity() {
         toggle.syncState()
 
         binding.drawingView.roomName = args.roomName
+
+        chatMessageAdapter.stateRestorationPolicy =
+            RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
 
         val header = layoutInflater.inflate(R.layout.nav_drawer_header, binding.navView)
         rvPlayers = header.findViewById(R.id.rvPlayers)
@@ -79,6 +84,22 @@ class DrawingActivity : AppCompatActivity() {
 
             override fun onDrawerStateChanged(newState: Int) = Unit
         })
+
+        binding.ibClearText.setOnClickListener {
+            binding.etMessage.text?.clear()
+        }
+
+        binding.ibSend.setOnClickListener {
+            viewModel.sendChatMessage(
+                ChatMessage(
+                    args.username,
+                    args.roomName,
+                    binding.etMessage.text.toString(),
+                    System.currentTimeMillis()
+                )
+            )
+            binding.etMessage.text?.clear()
+        }
 
         binding.ibUndo.setOnClickListener {
             if (binding.drawingView.isUserDrawing) {
@@ -104,6 +125,13 @@ class DrawingActivity : AppCompatActivity() {
     }
 
     private fun subscribeToUiStateUpdates() {
+        lifecycleScope.launchWhenStarted {
+            viewModel.chat.collect { chat ->
+                if (chatMessageAdapter.chatObjects.isEmpty()) {
+                    updateChatMessageList(chat)
+                }
+            }
+        }
         lifecycleScope.launchWhenStarted {
             viewModel.selectedColorButtonId.collect { id ->
                 binding.colorGroup.check(id)
@@ -156,6 +184,12 @@ class DrawingActivity : AppCompatActivity() {
                         }
                     }
                 }
+                is DrawingViewModel.SocketEvent.ChatMessageEvent -> {
+                    addChatObjectToRecyclerView(event.data)
+                }
+                is DrawingViewModel.SocketEvent.AnnouncementEvent -> {
+                    addChatObjectToRecyclerView(event.data)
+                }
                 is DrawingViewModel.SocketEvent.UndoEvent -> {
                     binding.drawingView.undo()
                 }
@@ -192,6 +226,27 @@ class DrawingActivity : AppCompatActivity() {
                 }
                 else -> Unit
             }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        binding.rvChat.layoutManager?.onSaveInstanceState()
+    }
+
+    private fun updateChatMessageList(chat: List<BaseModel>) {
+        updateChatJob?.cancel()
+        updateChatJob = lifecycleScope.launch {
+            chatMessageAdapter.updateDataset(chat)
+        }
+    }
+
+    private suspend fun addChatObjectToRecyclerView(chatObject: BaseModel) {
+        val canScrollDown = binding.rvChat.canScrollVertically(1)
+        updateChatMessageList(chatMessageAdapter.chatObjects + chatObject)
+        updateChatJob?.join()
+        if(!canScrollDown) {
+            binding.rvChat.scrollToPosition(chatMessageAdapter.chatObjects.size - 1)
         }
     }
 
