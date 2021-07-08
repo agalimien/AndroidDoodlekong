@@ -35,6 +35,9 @@ class DrawingViewModel @Inject constructor(
         object UndoEvent : SocketEvent()
     }
 
+    private val _newWords = MutableStateFlow(NewWords(listOf()))
+    val newWords: StateFlow<NewWords> = _newWords
+
     private val _chat = MutableStateFlow<List<BaseModel>>(listOf())
     val chat: StateFlow<List<BaseModel>> = _chat
 
@@ -85,22 +88,34 @@ class DrawingViewModel @Inject constructor(
                     is DrawData -> {
                         socketEventChannel.send(SocketEvent.DrawDataEvent(data))
                     }
+                    is ChatMessage -> {
+                        socketEventChannel.send(SocketEvent.ChatMessageEvent(data))
+                    }
+                    is ChosenWord -> {
+                        socketEventChannel.send(SocketEvent.ChosenWordEvent(data))
+                    }
+                    is Announcement -> {
+                        socketEventChannel.send(SocketEvent.AnnouncementEvent(data))
+                    }
+                    is NewWords -> {
+                        _newWords.value = data
+                        socketEventChannel.send(SocketEvent.NewWordsEvent(data))
+                    }
                     is DrawAction -> {
                         when(data.action) {
                             ACTION_UNDO -> socketEventChannel.send(SocketEvent.UndoEvent)
                         }
-                    }
-                    is ChatMessage -> {
-                        socketEventChannel.send(SocketEvent.ChatMessageEvent(data))
-                    }
-                    is Announcement -> {
-                        socketEventChannel.send(SocketEvent.AnnouncementEvent(data))
                     }
                     is GameError -> socketEventChannel.send(SocketEvent.GameErrorEvent(data))
                     is Ping -> sendBaseModel(Ping())
                 }
             }
         }
+    }
+
+    fun chooseWord(word: String, roomName: String) {
+        val chosenWord = ChosenWord(word, roomName)
+        sendBaseModel(chosenWord)
     }
 
     fun sendChatMessage(message: ChatMessage) {
