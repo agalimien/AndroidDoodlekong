@@ -1,22 +1,24 @@
 package com.plcoding.doodlekong.ui.drawing
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import com.plcoding.doodlekong.R
 import com.plcoding.doodlekong.data.remote.ws.DrawingApi
 import com.plcoding.doodlekong.data.remote.ws.Room
 import com.plcoding.doodlekong.data.remote.ws.models.*
 import com.plcoding.doodlekong.data.remote.ws.models.DrawAction.Companion.ACTION_UNDO
 import com.plcoding.doodlekong.ui.views.DrawingView
+import com.plcoding.doodlekong.util.Constants.TYPE_DRAW_ACTION
+import com.plcoding.doodlekong.util.Constants.TYPE_DRAW_DATA
 import com.plcoding.doodlekong.util.CoroutineTimer
 import com.plcoding.doodlekong.util.DispatcherProvider
 import com.tinder.scarlet.WebSocket
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.elementAtOrNull
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
@@ -37,12 +39,15 @@ class DrawingViewModel @Inject constructor(
         data class NewWordsEvent(val data: NewWords) : SocketEvent()
         data class ChosenWordEvent(val data: ChosenWord) : SocketEvent()
         data class GameErrorEvent(val data: GameError) : SocketEvent()
-        data class RoundDrawInfoEvent(val data: RoundDrawInfo) : SocketEvent()
+        data class RoundDrawInfoEvent(val data: List<BaseModel>) : SocketEvent()
         object UndoEvent : SocketEvent()
     }
 
     private val _pathData = MutableStateFlow(Stack<DrawingView.PathData>())
     val pathData: StateFlow<Stack<DrawingView.PathData>> = _pathData
+
+    private val _players = MutableStateFlow<List<PlayerData>>(listOf())
+    val players: StateFlow<List<PlayerData>> = _players
 
     private val _newWords = MutableStateFlow(NewWords(listOf()))
     val newWords: StateFlow<NewWords> = _newWords
@@ -120,7 +125,7 @@ class DrawingViewModel @Inject constructor(
     private fun observeBaseModels() {
         viewModelScope.launch(dispatchers.io) {
             drawingApi.observeBaseModels().collect { data ->
-                when(data) {
+                when (data) {
                     is DrawData -> {
                         socketEventChannel.send(SocketEvent.DrawDataEvent(data))
                     }
@@ -130,6 +135,19 @@ class DrawingViewModel @Inject constructor(
                     is ChosenWord -> {
                         socketEventChannel.send(SocketEvent.ChosenWordEvent(data))
                     }
+                    is RoundDrawInfo -> {
+                        val drawActions = mutableListOf<BaseModel>()
+                        data.data.forEach { drawAction ->
+                            val jsonObject = JsonParser.parseString(drawAction).asJsonObject
+                            val type = when (jsonObject.get("type").asString) {
+                                TYPE_DRAW_DATA -> DrawData::class.java
+                                TYPE_DRAW_ACTION -> DrawAction::class.java
+                                else -> BaseModel::class.java
+                            }
+                            drawActions.add(gson.fromJson(drawAction, type))
+                        }
+                        socketEventChannel.send(SocketEvent.RoundDrawInfoEvent(drawActions))
+                    }
                     is Announcement -> {
                         socketEventChannel.send(SocketEvent.AnnouncementEvent(data))
                     }
@@ -137,12 +155,15 @@ class DrawingViewModel @Inject constructor(
                         _gameState.value = data
                         socketEventChannel.send(SocketEvent.GameStateEvent(data))
                     }
+                    is PlayersList -> {
+                        _players.value = data.players
+                    }
                     is NewWords -> {
                         _newWords.value = data
                         socketEventChannel.send(SocketEvent.NewWordsEvent(data))
                     }
                     is DrawAction -> {
-                        when(data.action) {
+                        when (data.action) {
                             ACTION_UNDO -> socketEventChannel.send(SocketEvent.UndoEvent)
                         }
                     }
