@@ -36,7 +36,7 @@ class CustomGsonMessageAdapter<T> private constructor(
             TYPE_CHAT_MESSAGE -> ChatMessage::class.java
             TYPE_DRAW_DATA -> DrawData::class.java
             TYPE_ANNOUNCEMENT -> Announcement::class.java
-            TYPE_JOIN_ROOM_HANDSHAKE ->JoinRoomHandshake::class.java
+            TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandshake::class.java
             TYPE_PHASE_CHANGE -> PhaseChange::class.java
             TYPE_CHOSEN_WORD -> ChosenWord::class.java
             TYPE_GAME_STATE -> GameState::class.java
@@ -55,7 +55,7 @@ class CustomGsonMessageAdapter<T> private constructor(
 
     override fun toMessage(data: T): Message {
         var convertedData = data as BaseModel
-        convertedData = when(convertedData.type) {
+        convertedData = when (convertedData.type) {
             TYPE_CHAT_MESSAGE -> convertedData as ChatMessage
             TYPE_DRAW_DATA -> convertedData as DrawData
             TYPE_ANNOUNCEMENT -> convertedData as Announcement
@@ -77,7 +77,7 @@ class CustomGsonMessageAdapter<T> private constructor(
 
     class Factory(
         private val gson: Gson
-    ): MessageAdapter.Factory {
+    ) : MessageAdapter.Factory {
         override fun create(type: Type, annotations: Array<Annotation>): MessageAdapter<*> {
             return CustomGsonMessageAdapter<Any>(gson)
         }

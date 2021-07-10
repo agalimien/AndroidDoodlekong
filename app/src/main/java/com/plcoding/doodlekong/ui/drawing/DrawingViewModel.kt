@@ -1,6 +1,5 @@
 package com.plcoding.doodlekong.ui.drawing
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -182,6 +181,10 @@ class DrawingViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun disconnect() {
+        sendBaseModel(DisconnectRequest())
     }
 
     fun chooseWord(word: String, roomName: String) {
